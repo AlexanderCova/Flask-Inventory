@@ -1,15 +1,21 @@
 from flask import Flask, render_template, request, redirect 
-import sqlite3 as sql
+
 from datetime import datetime
+import firebase_admin
+from firebase_admin import credentials, firestore
+
+cred = credentials.Certificate("/etc/secrets/serviceAccountKey.json")
+firebase_admin.initialize_app(cred)
+
 
 app = Flask("inventoryApp")
 
-conn = sql.connect("inventory.db", check_same_thread=False)
-cursor = conn.cursor()
-cursor.execute("CREATE TABLE IF NOT EXISTS inventory (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, quantity INTEGER, unit TEXT, last_updated TEXT)")
-conn.commit()
-@app.route("/", methods=["GET", "POST"])
 
+db = firestore.client()
+items_ref = db.collection("Itmes")
+
+
+@app.route("/", methods=["GET", "POST"])
 def main_login_page():
 
     if request.method == "POST":
@@ -23,11 +29,16 @@ def main_login_page():
 
 @app.route("/dashboard")
 def dashboard():
-    inventory = cursor.execute("SELECT * FROM inventory")
-    inventory = inventory.fetchall()
-    print(inventory)
 
-    return render_template("dashboard.html", inventory=inventory)
+    items = items_ref.get()
+
+    item_list = []
+    for item in items:
+        item_list.append(item.to_dict())
+        
+    
+
+    return render_template("dashboard.html", inventory=item_list)
 
 
 @app.route("/update_inventory", methods=["POST"])
@@ -37,12 +48,14 @@ def update_inventory():
     item_name = request.form["item"]
     quantity_change = int(request.form["quantity"])
 
-    current_item = cursor.execute("SELECT quantity FROM inventory WHERE name = ?", (item_name,)).fetchone()
-    new_quantity = current_item[0] + quantity_change
+    current_item = items_ref.document(item_name).get().to_dict()
+    new_quantity = int(current_item["quantity"]) + quantity_change
     last_updated = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    cursor.execute("UPDATE inventory SET quantity = ?, last_updated = ? WHERE name = ?", 
-                  (new_quantity, last_updated, item_name))
-    conn.commit()
+    
+    
+    items_ref.document(item_name).update({"last_update": last_updated, "quantity":new_quantity})
+
+
     return redirect("/dashboard")
 
 
@@ -53,8 +66,14 @@ def new_item():
         quantity = request.form["quantity"]
         unit = request.form["unit"]
         last_updated = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        cursor.execute("INSERT INTO inventory (name, quantity, unit, last_updated) VALUES (?, ?, ?, ?)", (name, quantity, unit, last_updated))
-        conn.commit()
+
+        items_ref.document(name).set({
+            "name": name,
+            "quantity": quantity,
+            "unit": unit,
+            "last_update": last_updated
+        })
+
         return redirect("/dashboard")
     return render_template("new_item.html")
 

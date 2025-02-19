@@ -91,7 +91,7 @@
                 <label for="item">Select Item:</label>
                 <select id="item" name="item" required>
                     {% for item in inventory %}
-                    <option value="{{ item[1] }}">{{ item[1] }}</option>
+                    <option value="{{ item.name }}">{{ item.name }}</option>
                     {% endfor %}
                 </select>
             </div>
@@ -121,10 +121,10 @@
             <tbody>
                 {% for item in inventory %}
                 <tr>
-                    <td>{{ item[1] }}</td>
-                    <td>{{ item[2] }}</td>
-                    <td>{{ item[3] }}</td>
-                    <td>{{ item[4] }}</td>
+                    <td>{{ item.name }}</td>
+                    <td>{{ item.quantity }}</td>
+                    <td>{{ item.unit }}</td>
+                    <td>{{ item.last_update }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
